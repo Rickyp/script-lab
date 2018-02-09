@@ -9,6 +9,8 @@ import { UI, Monaco } from '../actions';
 import { Effect, Actions } from '@ngrx/effects';
 import * as sha1 from 'crypto-js/sha1';
 
+const OFFICE_D_TS_OVERRIDE = 'https://unpkg.com/@microsoft/office-js@1.1.5-adhoc.12/dist/office.d.ts';
+
 const DefaultLibraries = [
     environment.current.config.editorUrl + '/runtime-helpers.d.ts'
 ];
@@ -46,7 +48,7 @@ export class MonacoEffects {
                     let currentFile = this._current.get(file);
                     return currentFile == null ? file : currentFile.keep = true;
                 })
-                .filter(file => file !== true && !(file == null));
+                .filter(file => file !== true && !(file == null))
 
             this._current.values()
                 .filter(file => !file.keep)
@@ -84,26 +86,34 @@ export class MonacoEffects {
     }
 
     private _parse(libraries: string[]) {
-        return libraries.map(library => {
-            if (/^@types/.test(library)) {
-                return `https://unpkg.com/${library}/index.d.ts`;
-            }
-            else if (/^dt~/.test(library)) {
-                let libName = library.split('dt~')[1];
-                return `https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/${libName}/index.d.ts`;
-            }
-            else if (/\.d\.ts$/i.test(library)) {
-                if (/^https?:/i.test(library)) {
-                    return library;
+        return libraries
+            .map(library => library.trim())
+            .map(library => {
+                if (library === '@types/office-js' || library.indexOf('office.d.ts') > 0) {
+                    library = OFFICE_D_TS_OVERRIDE;
+                }
+                return library;
+            })
+            .map(library => {
+                if (/^@types/.test(library)) {
+                    return `https://unpkg.com/${library}/index.d.ts`;
+                }
+                else if (/^dt~/.test(library)) {
+                    let libName = library.split('dt~')[1];
+                    return `https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/${libName}/index.d.ts`;
+                }
+                else if (/\.d\.ts$/i.test(library)) {
+                    if (/^https?:/i.test(library)) {
+                        return library;
+                    }
+                    else {
+                        return `https://unpkg.com/${library}`;
+                    }
                 }
                 else {
-                    return `https://unpkg.com/${library}`;
+                    return null;
                 }
-            }
-            else {
-                return null;
-            }
-        });
+            });
     }
 
     private _get(url: string): Observable<IIntellisenseFile> {
