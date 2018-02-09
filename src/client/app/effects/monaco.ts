@@ -48,7 +48,7 @@ export class MonacoEffects {
                     let currentFile = this._current.get(file);
                     return currentFile == null ? file : currentFile.keep = true;
                 })
-                .filter(file => file !== true && !(file == null))
+                .filter(file => file !== true && !(file == null));
 
             this._current.values()
                 .filter(file => !file.keep)
