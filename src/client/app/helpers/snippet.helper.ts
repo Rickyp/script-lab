@@ -105,6 +105,15 @@ export function isMakerScript(script: IContentLanguagePair) {
     return script.content.indexOf('Experimental.ExcelMaker') >= 0;
 }
 
+export function isCustomFunctionSnippet(snippet: ISnippet) {
+    if (snippet.customFunctions && snippet.customFunctions.content.trim().length > 0) {
+        return true;
+    }
+    return false;
+    // TODO CF - later, instead use content.indexOf("ScriptLab.registerCustomFunctions") >= 0 and only use the script tab.
+}
+
+
 function scrubCarriageReturns(snippet: ISnippet) {
     removeCarriageReturns(snippet, 'template');
     removeCarriageReturns(snippet, 'script');

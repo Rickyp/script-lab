@@ -76,22 +76,42 @@ interface IRunnerState {
     returnUrl?: string;
 }
 
-interface ICustomFunctionsRelevantData {
-    id: string;
-    name: string;
-    customFunctions: {
-        content: string;
-        language: string;
-    }
-    libraries: string;
+interface ICustomFunctionSnippetRegistrationInfo {
+    namespace: string;
+    functions: [
+        {
+            "name" : string;
+            "description": string;
+            "result": {
+                "type": string;
+                "dimensionality": string;
+            };
+            "parameters": [
+                {
+                    "name": string;
+                    "description": string;
+                    "type": string;
+                    "dimensionality": string;
+                }
+            ],
+            "options": {
+                "sync": boolean,
+                "stream": boolean,
+                "volatile": boolean
+            }
+        }
+    ]
+}
+
+// per-snippet
+interface ICustomFunctionsRegistrationRelevantData {
+    name: string; // of snippet
+    data: ICustomFunctionSnippetRegistrationInfo;
 }
 
 /** Request body passed to the custom functions compile route in a POST */
-interface ICompileCustomFunctionsState {
-    snippets: Array<ICustomFunctionsRelevantData>;
-    mode: 'register' | 'run';
-    heartbeatParams: ICustomFunctionsHeartbeatParams;
-
+interface IRegisterCustomFunctionsPostData {
+    snippets: Array<ICustomFunctionsRegistrationRelevantData>;
     displayLanguage: string;
 }
 

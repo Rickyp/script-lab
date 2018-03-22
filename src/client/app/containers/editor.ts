@@ -7,7 +7,7 @@ import { Dictionary } from '@microsoft/office-js-helpers';
 import * as fromRoot from '../reducers';
 import {
     AI, environment, trustedSnippetManager, getSnippetDefaults,
-    navigateToCompileCustomFunctions,
+    navigateToRegisterCustomFunctions,
     getNumberFromLocalStorage, getElapsedTime, ensureFreshLocalStorage, storage
 } from '../helpers';
 import { UIEffects } from '../effects/ui';
@@ -20,7 +20,7 @@ const { localStorageKeys } = PLAYGROUND;
     selector: 'editor',
     template: `
         <ul class="tabs ms-Pivot ms-Pivot--tabs" [hidden]="hide">
-            <li class="tabs__tab ms-Pivot-link" *ngFor="let tab of tabs.values()" (click)="changeTab(tab.name)" [ngClass]="{'is-selected tabs__tab--active' : tab.name === currentState?.name}">
+            <li class="tabs__tab ms-Pivot-link" *ngFor="let tab of currentlyVisibleTabs()" (click)="changeTab(tab.name)" [ngClass]="{'is-selected tabs__tab--active' : tab.name === currentState?.name}">
                 {{tab.displayName}}
             </li>
         </ul>
@@ -70,6 +70,11 @@ export class Editor implements AfterViewInit {
         }
     }
 
+    currentlyVisibleTabs() {
+        return this.tabs.values()
+            .filter(tab => tab.name === 'script' || tab.name === 'libraries');
+    }
+
 
     /**
      * Initialize the component and subscribe to all the necessary actions.
@@ -116,7 +121,9 @@ export class Editor implements AfterViewInit {
 
     changeTab = (name: string = 'script') => {
         let language = '';
-        if (name !== 'libraries') {
+        if (name === 'customFunctions') {
+            language = 'json';
+        } else if (name !== 'libraries') {
             language = this.tabs.get(name).language;
         }
 
@@ -220,44 +227,40 @@ export class Editor implements AfterViewInit {
             startOfRequestTime.toString()
         );
 
-        // If was already waiting (in vein) or heartbeat isn't running (not alive for > 3 seconds), update immediately
-        let updateImmediately = this.isWaitingOnCustomFunctionsUpdate ||
-            getElapsedTime(getNumberFromLocalStorage(localStorageKeys.customFunctionsLastHeartbeatTimestamp)) > 3000;
-        if (updateImmediately) {
-            navigateToCompileCustomFunctions('register');
-            return;
-        }
+        // TODO: maybe handle failures more gracefully with nicer error message, rather than
+        // generic exception kicking in.
+        navigateToRegisterCustomFunctions();
 
-        // It seems like the heartbeat is running.  So give it a chance to pick up
+        // // It seems like the heartbeat is running.  So give it a chance to pick up
 
-        // TODO CUSTOM FUNCTIONS:  This is a TEMPORARY DESIGN AND HENCE ENGLISH ONLY for the strings
-        this.registerCustomFunctionsButtonText = 'Attempting to update, this may take 10 or more seconds. Please wait (or click again to redirect to registration page, and see any accumulated errors)';
-        this.isWaitingOnCustomFunctionsUpdate = true;
+        // // TODO CUSTOM FUNCTIONS:  This is a TEMPORARY DESIGN AND HENCE ENGLISH ONLY for the strings
+        // this.registerCustomFunctionsButtonText = 'Attempting to update, this may take 10 or more seconds. Please wait (or click again to redirect to registration page, and see any accumulated errors)';
+        // this.isWaitingOnCustomFunctionsUpdate = true;
 
-        let interval = setInterval(() => {
-            let heartbeatCurrentlyRunningTimestamp = getNumberFromLocalStorage(
-                localStorageKeys.customFunctionsCurrentlyRunningTimestamp);
-            if (heartbeatCurrentlyRunningTimestamp > startOfRequestTime) {
-                this.isWaitingOnCustomFunctionsUpdate = false;
-                clearInterval(interval);
-                this.registerCustomFunctionsButtonText = this.strings.registerCustomFunctions;
-                this.updateLastRegisteredFunctionsTooltip();
-            }
-        }, 2000);
+        // let interval = setInterval(() => {
+        //     let heartbeatCurrentlyRunningTimestamp = getNumberFromLocalStorage(
+        //         localStorageKeys.customFunctionsCurrentlyRunningTimestamp);
+        //     if (heartbeatCurrentlyRunningTimestamp > startOfRequestTime) {
+        //         this.isWaitingOnCustomFunctionsUpdate = false;
+        //         clearInterval(interval);
+        //         this.registerCustomFunctionsButtonText = this.strings.registerCustomFunctions;
+        //         this.updateLastRegisteredFunctionsTooltip();
+        //     }
+        // }, 2000);
     }
 
-    updateLastRegisteredFunctionsTooltip() {
-        let currentlyRunningLastUpdated = getNumberFromLocalStorage(
-            localStorageKeys.customFunctionsCurrentlyRunningTimestamp);
-        if (currentlyRunningLastUpdated === 0) {
-            return;
-        }
+    // updateLastRegisteredFunctionsTooltip() {
+    //     let currentlyRunningLastUpdated = getNumberFromLocalStorage(
+    //         localStorageKeys.customFunctionsCurrentlyRunningTimestamp);
+    //     if (currentlyRunningLastUpdated === 0) {
+    //         return;
+    //     }
 
-        this.lastRegisteredFunctionsTooltip = this.strings.getTextForCustomFunctionsLastUpdated(
-            moment(new Date(currentlyRunningLastUpdated)).locale(getDisplayLanguageOrFake()).fromNow(),
-            moment(new Date(getNumberFromLocalStorage(localStorageKeys.customFunctionsLastHeartbeatTimestamp))).locale(getDisplayLanguageOrFake()).fromNow()
-        );
-    }
+    //     this.lastRegisteredFunctionsTooltip = this.strings.getTextForCustomFunctionsLastUpdated(
+    //         moment(new Date(currentlyRunningLastUpdated)).locale(getDisplayLanguageOrFake()).fromNow(),
+    //         moment(new Date(getNumberFromLocalStorage(localStorageKeys.customFunctionsLastHeartbeatTimestamp))).locale(getDisplayLanguageOrFake()).fromNow()
+    //     );
+    // }
 
     private _createTabs() {
         this.tabNames.forEach(name => {
@@ -377,6 +380,10 @@ export class Editor implements AfterViewInit {
     private _debouncedInput = debounce(() => {
         if (!this.isViewMode) {
             this.currentState.content = this._monacoEditor.getValue();
+            // TODO CF: once move CF registration logic to Script tab instead of Libraries
+            if (isCustomFunctionSnippet (this.currentState.content)) {
+
+            }
             this._store.dispatch(new Snippet.SaveAction(this.snippet));
             this.clearPerformanceMakers();
         }
